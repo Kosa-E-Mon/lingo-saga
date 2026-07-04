@@ -438,6 +438,9 @@
   </nav>
 </header>
 
+<!-- データ状態バナー（デモ表示中／読み込みエラー時のみ表示） -->
+<div id="dataBanner" style="display:none; width:calc(100% - 32px); max-width:1068px; margin:16px auto -8px; padding:12px 16px; border-radius:10px; font-size:0.9rem; line-height:1.6;"></div>
+
 <!-- メインコンテンツ -->
 <main class="main">
 
@@ -640,8 +643,17 @@ function loadSettingsToForm() {
 }
 
 function saveSettings() {
-  localStorage.setItem(STORAGE_KEYS.name,   document.getElementById('settingName').value.trim());
-  localStorage.setItem(STORAGE_KEYS.gasUrl, document.getElementById('settingGasUrl').value.trim());
+  localStorage.setItem(STORAGE_KEYS.name, document.getElementById('settingName').value.trim());
+
+  // URL欄が空のまま保存しても、登録済みのGAS URLは消さない
+  // （名前だけ変えたつもりがデータ未接続になる事故を防ぐ）
+  const urlInput  = document.getElementById('settingGasUrl').value.trim();
+  const storedUrl = localStorage.getItem(STORAGE_KEYS.gasUrl) || '';
+  if (urlInput) {
+    localStorage.setItem(STORAGE_KEYS.gasUrl, urlInput);
+  } else if (storedUrl) {
+    document.getElementById('settingGasUrl').value = storedUrl;
+  }
   loadData();
 }
 
@@ -650,12 +662,32 @@ function reloadData() { loadData(); }
 // ============================================================
 // データ読み込み
 // ============================================================
+function showBanner(kind) {
+  const b = document.getElementById('dataBanner');
+  if (kind === 'demo') {
+    b.style.display    = 'block';
+    b.style.background = 'rgba(124,58,237,0.15)';
+    b.style.border     = '1px solid var(--purple)';
+    b.style.color      = 'var(--purple2)';
+    b.textContent      = '📊 いま表示されているのはデモデータ（サンプル）です。⚙️ 設定でGAS URLを登録すると、あなたの冒険の記録が表示されます。';
+  } else if (kind === 'error') {
+    b.style.display    = 'block';
+    b.style.background = 'rgba(239,68,68,0.12)';
+    b.style.border     = '1px solid var(--red)';
+    b.style.color      = 'var(--red)';
+    b.textContent      = '⚠️ データを読み込めませんでした。スプレッドシートの記録は消えていません。GAS URLの設定と通信環境を確認して「🔄 更新」を押してください。';
+  } else {
+    b.style.display = 'none';
+  }
+}
+
 async function loadData() {
   const gasUrl = localStorage.getItem(STORAGE_KEYS.gasUrl);
 
-  // GAS URLが未設定のときはデモデータで表示
+  // GAS URLが未設定のときはデモデータで表示（その旨を明示）
   if (!gasUrl) {
     renderAll(getDemoData(), []);
+    showBanner('demo');
     document.getElementById('loadingOverlay').classList.add('hidden');
     return;
   }
@@ -673,9 +705,11 @@ async function loadData() {
     const data     = (dashJson.status === 'success') ? dashJson.data : {};
 
     renderAll(data, sessions);
+    showBanner('none');
   } catch(e) {
-    console.warn('データ読み込みエラー（デモ表示）:', e);
-    renderAll(getDemoData(), []);
+    // 読み込み失敗時はデモデータにすり替えず、エラーであることを表示する
+    console.warn('データ読み込みエラー:', e);
+    showBanner('error');
   } finally {
     document.getElementById('loadingOverlay').classList.add('hidden');
   }
