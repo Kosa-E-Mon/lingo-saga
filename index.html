@@ -571,6 +571,22 @@
       </div>
     </div>
     <button class="btn-save" onclick="saveSettings()">💾 設定を保存して再読み込み</button>
+
+    <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--border);">
+      <div style="font-size:0.85rem; color:var(--text2); margin-bottom:10px;">
+        📜 ChatGPT(GPTs)のInstructionsに貼るシステムプロンプト
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button id="btnCopyPrompt" onclick="copyGptsPrompt(this)"
+          style="flex:1; min-width:160px; padding:10px 14px; border-radius:8px; border:1px solid var(--purple); background:rgba(124,58,237,0.15); color:var(--purple2); cursor:pointer; font-size:0.9rem;">
+          📋 プロンプトをコピー
+        </button>
+        <a href="https://github.com/Kosa-E-Mon/lingo-saga/blob/main/gpts_prompt.md" target="_blank" rel="noopener"
+          style="flex:1; min-width:120px; padding:10px 14px; border-radius:8px; border:1px solid var(--border); background:var(--bg2); color:var(--text2); text-align:center; text-decoration:none; font-size:0.9rem;">
+          📖 中身を見る
+        </a>
+      </div>
+    </div>
   </div>
 
 </main>
@@ -658,6 +674,34 @@ function saveSettings() {
 }
 
 function reloadData() { loadData(); }
+
+async function copyGptsPrompt(btn) {
+  const original = '📋 プロンプトをコピー';
+  try {
+    const res = await fetch('gpts_prompt.md');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      // 権限やブラウザ差でClipboard APIが使えないときの旧方式フォールバック
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (!ok) throw new Error('execCommand copy failed');
+    }
+    btn.textContent = '✅ コピーしました！GPTsのInstructionsに貼ってください';
+  } catch (e) {
+    console.warn('プロンプトコピー失敗:', e);
+    btn.textContent = '⚠️ コピーできませんでした（「中身を見る」からどうぞ）';
+  }
+  setTimeout(() => { btn.textContent = original; }, 3000);
+}
 
 // ============================================================
 // データ読み込み
