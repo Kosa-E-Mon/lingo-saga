@@ -896,6 +896,20 @@ const JOBDEX_GROUPS = [
     ]
   },
   {
+    title: '👑 極み職 ─ 同じ職業で10回',
+    jobs: [
+      { icon: '⚡', name: '剣聖',           hint: '戦士を10回',     test: s => countClass(s, '戦士') >= 10 },
+      { icon: '🐯', name: '拳聖',           hint: '武闘家を10回',   test: s => countClass(s, '武闘家') >= 10 },
+      { icon: '🌟', name: '魔導王',         hint: '魔法使いを10回', test: s => countClass(s, '魔法使い') >= 10 },
+      { icon: '😇', name: '聖者',           hint: '僧侶を10回',     test: s => countClass(s, '僧侶') >= 10 },
+      { icon: '🦇', name: '怪盗紳士',       hint: '盗賊を10回',     test: s => countClass(s, '盗賊') >= 10 },
+      { icon: '🎇', name: '詩聖',           hint: '吟遊詩人を10回', test: s => countClass(s, '吟遊詩人') >= 10 },
+      { icon: '🎪', name: '道化の王',       hint: '遊び人を10回',   test: s => countClass(s, '遊び人') >= 10 },
+      { icon: '💰', name: '豪商',           hint: '商人を10回',     test: s => countClass(s, '商人') >= 10 },
+      { icon: '🌌', name: '万象の賢者',     hint: '賢者を10回',     test: s => countClass(s, '賢者') >= 10 }
+    ]
+  },
+  {
     title: '✨ 達人称号 ─ パラメーター90超え',
     jobs: [
       { icon: '🎵', name: '美声の持ち主',     hint: '発音90以上',       test: s => maxParam(s, 'pronunciation') >= 90 },
@@ -910,6 +924,31 @@ const JOBDEX_GROUPS = [
     ]
   },
   {
+    title: '💫 超達人 ─ パラメーター95超え',
+    jobs: [
+      { icon: '🎙️', name: 'ネイティブボイス', hint: '発音95以上',       test: s => maxParam(s, 'pronunciation') >= 95 },
+      { icon: '🏛️', name: '歩く辞書',         hint: '語彙95以上',       test: s => maxParam(s, 'vocabulary') >= 95 },
+      { icon: '📏', name: '文法の支配者',     hint: '文法95以上',       test: s => maxParam(s, 'grammar') >= 95 },
+      { icon: '🌪️', name: '言葉の奔流',       hint: '流暢さ95以上',     test: s => maxParam(s, 'fluency') >= 95 },
+      { icon: '🔔', name: '神の耳',           hint: '聞き取り95以上',   test: s => maxParam(s, 'listening') >= 95 },
+      { icon: '🎨', name: '言葉の絵師',       hint: '表現力95以上',     test: s => maxParam(s, 'expression') >= 95 },
+      { icon: '🍃', name: 'そよ風の話者',     hint: '自然さ95以上',     test: s => maxParam(s, 'naturalness') >= 95 },
+      { icon: '🦁', name: '百獣の心臓',       hint: '積極性95以上',     test: s => maxParam(s, 'initiative') >= 95 },
+      { icon: '🫖', name: '座談の名人',       hint: '場の雰囲気95以上', test: s => maxParam(s, 'pragmatics') >= 95 }
+    ]
+  },
+  {
+    title: '🗨️ 話題の称号 ─ トピックを極める',
+    jobs: [
+      { icon: '☕', name: '雑談の達人',     hint: '日常・雑談を5回',     test: s => countTopic(s, '雑談') >= 5 },
+      { icon: '🗼', name: '観光の申し子',   hint: '観光・案内を5回',     test: s => countTopic(s, '観光') >= 5 },
+      { icon: '📈', name: '商談の鬼',       hint: '仕事・ビジネスを5回', test: s => countTopic(s, 'ビジネス') >= 5 },
+      { icon: '🗣️', name: '論客',           hint: '意見・議論を5回',     test: s => countTopic(s, '議論') >= 5 },
+      { icon: '🎲', name: '風任せの旅人',   hint: 'おまかせを5回',       test: s => countTopic(s, 'おまかせ') >= 5 },
+      { icon: '🧭', name: '全方位の話し手', hint: '5種類の話題すべてを経験', test: s => ['雑談','観光','ビジネス','議論','おまかせ'].every(t => countTopic(s, t) >= 1) }
+    ]
+  },
+  {
     title: '🗺️ 冒険録 ─ 戦い方の勲章',
     jobs: [
       { icon: '🐉', name: '竜殺し',       hint: 'Hardを3回クリア',            test: s => s.filter(x => x.difficulty === 'Hard').length >= 3 },
@@ -917,22 +956,49 @@ const JOBDEX_GROUPS = [
       { icon: '⚡', name: '電光石火',     hint: '5分セッションを5回',         test: s => s.filter(x => Number(x.minutes) > 0 && Number(x.minutes) <= 5).length >= 5 },
       { icon: '🌈', name: '万華鏡の冒険者', hint: '5種類の職業を経験',        test: s => distinctClasses(s) >= 5 },
       { icon: '🏆', name: 'ギルドの英雄', hint: '9職すべてを経験',            test: s => distinctClasses(s) >= 9 },
-      { icon: '🏮', name: '語り部案内人', hint: '観光・案内の話題で吟遊詩人', test: s => s.some(x => (x.topic || '').includes('観光') && classOf(x) === '吟遊詩人') }
+      { icon: '🏮', name: '語り部案内人', hint: '観光・案内の話題で吟遊詩人', test: s => s.some(x => (x.topic || '').includes('観光') && classOf(x) === '吟遊詩人') },
+      { icon: '🐲', name: '竜王討伐',     hint: 'Hardを10回クリア',           test: s => s.filter(x => x.difficulty === 'Hard').length >= 10 },
+      { icon: '🏔️', name: '大遠征の指揮官', hint: '15分セッションを15回',     test: s => s.filter(x => Number(x.minutes) >= 15).length >= 15 },
+      { icon: '🎯', name: '百戦錬磨',     hint: 'Easy・Normal・Hardすべて経験', test: s => ['Easy','Normal','Hard'].every(d => s.some(x => x.difficulty === d)) },
+      { icon: '⏳', name: '時の旅人',     hint: '累計60分の修行',             test: s => sumMinutes(s) >= 60 },
+      { icon: '🕰️', name: '時の探究者',   hint: '累計300分の修行',            test: s => sumMinutes(s) >= 300 },
+      { icon: '⌛', name: '永劫の修行者', hint: '累計1000分の修行',           test: s => sumMinutes(s) >= 1000 },
+      { icon: '💎', name: '完全勝利',     hint: '1回で全9パラメーター80以上', test: s => s.some(x => PARAM_NAMES.every(k => Number(x[k]) >= 80)) },
+      { icon: '🌠', name: '大金星',       hint: '1回でEXP300以上',            test: s => maxExp(s) >= 300 },
+      { icon: '🌌', name: '伝説の一戦',   hint: '1回でEXP500以上',            test: s => maxExp(s) >= 500 }
+    ]
+  },
+  {
+    title: '🗻 レベル到達 ─ 実力の証',
+    jobs: [
+      { icon: '🌉', name: '中級の壁を越えし者', hint: 'Lv.400に到達', test: s => maxLevel(s) >= 400 },
+      { icon: '🏞️', name: '上級への扉',         hint: 'Lv.500に到達', test: s => maxLevel(s) >= 500 },
+      { icon: '🗻', name: '雲の上の領域',       hint: 'Lv.700に到達（全国通訳案内士の目標レベル）', test: s => maxLevel(s) >= 700 },
+      { icon: '☀️', name: '太陽に届く者',       hint: 'Lv.900に到達', test: s => maxLevel(s) >= 900 }
     ]
   },
   {
     title: '🎖️ 節目 ─ 積み重ねの証',
     jobs: [
       { icon: '🐣', name: '巣立ちの冒険者', hint: 'チュートリアル10回を完了', test: s => s.length >= 10 },
-      { icon: '🔥', name: '継続は力なり',   hint: '通算20セッション',         test: s => s.length >= 20 }
+      { icon: '🔥', name: '継続は力なり',   hint: '通算20セッション',         test: s => s.length >= 20 },
+      { icon: '🌳', name: '大樹の風格',     hint: '通算30セッション',         test: s => s.length >= 30 },
+      { icon: '🏅', name: '半百の勇者',     hint: '通算50セッション',         test: s => s.length >= 50 },
+      { icon: '💯', name: '百戦の英雄',     hint: '通算100セッション',        test: s => s.length >= 100 }
     ]
   }
 ];
+
+const PARAM_NAMES = ['pronunciation','vocabulary','grammar','fluency','listening','expression','naturalness','initiative','pragmatics'];
 
 function classOf(x)            { return String(x.class || '').trim(); }
 function countClass(s, name)   { return s.filter(x => classOf(x) === name).length; }
 function maxParam(s, key)      { return s.reduce((m, x) => Math.max(m, Number(x[key]) || 0), 0); }
 function distinctClasses(s)    { return new Set(s.map(classOf).filter(Boolean)).size; }
+function countTopic(s, frag)   { return s.filter(x => (x.topic || '').includes(frag)).length; }
+function sumMinutes(s)         { return s.reduce((t, x) => t + (Number(x.minutes) || 0), 0); }
+function maxLevel(s)           { return s.reduce((m, x) => Math.max(m, Number(x.level) || 0), 0); }
+function maxExp(s)             { return s.reduce((m, x) => Math.max(m, Number(x.exp_gained) || 0), 0); }
 
 function renderJobDex(sessions) {
   const s = sessions || [];
