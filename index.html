@@ -94,6 +94,7 @@
       grid-template-areas:
         "card    radar"
         "progress progress"
+        "jobdex  jobdex"
         "graph   graph"
         "history journal"
         "setting setting";
@@ -106,6 +107,7 @@
           "card"
           "radar"
           "progress"
+          "jobdex"
           "graph"
           "history"
           "journal"
@@ -226,6 +228,52 @@
 
     /* ===== プログレスバー ===== */
     .progress-area { grid-area: progress; }
+
+    /* ===== ジョブ図鑑 ===== */
+    .jobdex-area { grid-area: jobdex; }
+
+    .jobdex-count {
+      font-size: 0.8rem;
+      color: var(--gold);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .jobdex-group-title {
+      font-size: 0.72rem;
+      color: var(--text3);
+      letter-spacing: 0.1em;
+      margin: 14px 0 8px;
+    }
+
+    .jobdex-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 10px;
+    }
+
+    .jobdex-badge {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 6px 8px;
+      text-align: center;
+    }
+
+    .jobdex-badge .icon { font-size: 1.6rem; line-height: 1.2; }
+    .jobdex-badge .name { font-size: 0.72rem; margin-top: 4px; font-weight: 600; color: var(--text); }
+    .jobdex-badge .hint { font-size: 0.62rem; margin-top: 3px; color: var(--text3); line-height: 1.4; }
+
+    .jobdex-badge.unlocked {
+      border-color: var(--gold);
+      background: rgba(245, 158, 11, 0.07);
+    }
+    .jobdex-badge.unlocked .name { color: var(--gold); }
+
+    .jobdex-badge.locked .icon {
+      filter: grayscale(1) brightness(0.35);
+    }
+    .jobdex-badge.locked .name { color: var(--text3); }
 
     .progress-section { margin-bottom: 14px; }
 
@@ -534,6 +582,13 @@
     </div>
   </div>
 
+  <!-- ジョブ図鑑 -->
+  <div class="card jobdex-area">
+    <div class="card-title">🏅 ジョブ図鑑</div>
+    <div class="jobdex-count" id="jobdexCount"></div>
+    <div id="jobdexBody"></div>
+  </div>
+
   <!-- 成長グラフ -->
   <div class="card graph-area">
     <div class="card-title">📉 成長グラフ</div>
@@ -805,6 +860,100 @@ function renderAll(data, sessions) {
   renderGrowthChart(sessions, 'level');
   renderHistory(sessions.length > 0 ? sessions : tryParseHistory(data.history_json));
   renderJournal(sessions.length > 0 ? sessions : tryParseHistory(data.history_json));
+  renderJobDex(sessions.length > 0 ? sessions : tryParseHistory(data.history_json));
+}
+
+// ============================================================
+// ジョブ図鑑（基本9職＝GPTs判定、派生称号＝記録データから自動判定）
+// ============================================================
+const JOBDEX_GROUPS = [
+  {
+    title: '⚔️ 基本職 ─ セッションで判定された職業',
+    jobs: [
+      { icon: '⚔️', name: '戦士',     hint: '戦士で1回戦う',       test: s => countClass(s, '戦士') >= 1 },
+      { icon: '🥋', name: '武闘家',   hint: '武闘家で1回戦う',     test: s => countClass(s, '武闘家') >= 1 },
+      { icon: '🧙', name: '魔法使い', hint: '魔法使いで1回戦う',   test: s => countClass(s, '魔法使い') >= 1 },
+      { icon: '🙏', name: '僧侶',     hint: '僧侶で1回戦う',       test: s => countClass(s, '僧侶') >= 1 },
+      { icon: '🗡️', name: '盗賊',     hint: '盗賊で1回戦う',       test: s => countClass(s, '盗賊') >= 1 },
+      { icon: '🎻', name: '吟遊詩人', hint: '吟遊詩人で1回戦う',   test: s => countClass(s, '吟遊詩人') >= 1 },
+      { icon: '🃏', name: '遊び人',   hint: '遊び人で1回戦う',     test: s => countClass(s, '遊び人') >= 1 },
+      { icon: '💼', name: '商人',     hint: '商人で1回戦う',       test: s => countClass(s, '商人') >= 1 },
+      { icon: '👑', name: '賢者',     hint: '賢者で1回戦う',       test: s => countClass(s, '賢者') >= 1 }
+    ]
+  },
+  {
+    title: '🏅 熟練職 ─ 同じ職業で3回',
+    jobs: [
+      { icon: '🛡️', name: '歴戦の戦士',     hint: '戦士を3回',     test: s => countClass(s, '戦士') >= 3 },
+      { icon: '🥇', name: '拳王',           hint: '武闘家を3回',   test: s => countClass(s, '武闘家') >= 3 },
+      { icon: '🔮', name: '魔道の探究者',   hint: '魔法使いを3回', test: s => countClass(s, '魔法使い') >= 3 },
+      { icon: '⛪', name: '高徳の僧',       hint: '僧侶を3回',     test: s => countClass(s, '僧侶') >= 3 },
+      { icon: '🌑', name: '影の住人',       hint: '盗賊を3回',     test: s => countClass(s, '盗賊') >= 3 },
+      { icon: '🎼', name: '旋律の名手',     hint: '吟遊詩人を3回', test: s => countClass(s, '吟遊詩人') >= 3 },
+      { icon: '🎡', name: '宴の主役',       hint: '遊び人を3回',   test: s => countClass(s, '遊び人') >= 3 },
+      { icon: '⚖️', name: '大商人',         hint: '商人を3回',     test: s => countClass(s, '商人') >= 3 },
+      { icon: '📜', name: '碩学の徒',       hint: '賢者を3回',     test: s => countClass(s, '賢者') >= 3 }
+    ]
+  },
+  {
+    title: '✨ 達人称号 ─ パラメーター90超え',
+    jobs: [
+      { icon: '🎵', name: '美声の持ち主',     hint: '発音90以上',       test: s => maxParam(s, 'pronunciation') >= 90 },
+      { icon: '📚', name: '生き字引',         hint: '語彙90以上',       test: s => maxParam(s, 'vocabulary') >= 90 },
+      { icon: '✒️', name: '文法の番人',       hint: '文法90以上',       test: s => maxParam(s, 'grammar') >= 90 },
+      { icon: '🌊', name: '流れる弁舌',       hint: '流暢さ90以上',     test: s => maxParam(s, 'fluency') >= 90 },
+      { icon: '🦻', name: '地獄耳',           hint: '聞き取り90以上',   test: s => maxParam(s, 'listening') >= 90 },
+      { icon: '💡', name: '表現の魔術師',     hint: '表現力90以上',     test: s => maxParam(s, 'expression') >= 90 },
+      { icon: '🕊️', name: 'ネイティブの風格', hint: '自然さ90以上',     test: s => maxParam(s, 'naturalness') >= 90 },
+      { icon: '🚀', name: '切り込み隊長',     hint: '積極性90以上',     test: s => maxParam(s, 'initiative') >= 90 },
+      { icon: '🎭', name: '空気の達人',       hint: '場の雰囲気90以上', test: s => maxParam(s, 'pragmatics') >= 90 }
+    ]
+  },
+  {
+    title: '🗺️ 冒険録 ─ 戦い方の勲章',
+    jobs: [
+      { icon: '🐉', name: '竜殺し',       hint: 'Hardを3回クリア',            test: s => s.filter(x => x.difficulty === 'Hard').length >= 3 },
+      { icon: '🏰', name: '遠征隊長',     hint: '15分セッションを5回',        test: s => s.filter(x => Number(x.minutes) >= 15).length >= 5 },
+      { icon: '⚡', name: '電光石火',     hint: '5分セッションを5回',         test: s => s.filter(x => Number(x.minutes) > 0 && Number(x.minutes) <= 5).length >= 5 },
+      { icon: '🌈', name: '万華鏡の冒険者', hint: '5種類の職業を経験',        test: s => distinctClasses(s) >= 5 },
+      { icon: '🏆', name: 'ギルドの英雄', hint: '9職すべてを経験',            test: s => distinctClasses(s) >= 9 },
+      { icon: '🏮', name: '語り部案内人', hint: '観光・案内の話題で吟遊詩人', test: s => s.some(x => (x.topic || '').includes('観光') && classOf(x) === '吟遊詩人') }
+    ]
+  },
+  {
+    title: '🎖️ 節目 ─ 積み重ねの証',
+    jobs: [
+      { icon: '🐣', name: '巣立ちの冒険者', hint: 'チュートリアル10回を完了', test: s => s.length >= 10 },
+      { icon: '🔥', name: '継続は力なり',   hint: '通算20セッション',         test: s => s.length >= 20 }
+    ]
+  }
+];
+
+function classOf(x)            { return String(x.class || '').trim(); }
+function countClass(s, name)   { return s.filter(x => classOf(x) === name).length; }
+function maxParam(s, key)      { return s.reduce((m, x) => Math.max(m, Number(x[key]) || 0), 0); }
+function distinctClasses(s)    { return new Set(s.map(classOf).filter(Boolean)).size; }
+
+function renderJobDex(sessions) {
+  const s = sessions || [];
+  let unlocked = 0, total = 0;
+
+  document.getElementById('jobdexBody').innerHTML = JOBDEX_GROUPS.map(g => {
+    const badges = g.jobs.map(j => {
+      const got = s.length > 0 && j.test(s);
+      total++;
+      if (got) unlocked++;
+      return `
+        <div class="jobdex-badge ${got ? 'unlocked' : 'locked'}">
+          <div class="icon">${j.icon}</div>
+          <div class="name">${got ? j.name : '？？？'}</div>
+          <div class="hint">${j.hint}</div>
+        </div>`;
+    }).join('');
+    return `<div class="jobdex-group-title">${g.title}</div><div class="jobdex-grid">${badges}</div>`;
+  }).join('');
+
+  document.getElementById('jobdexCount').textContent = `獲得 ${unlocked} / ${total}`;
 }
 
 function tryParseHistory(json) {
