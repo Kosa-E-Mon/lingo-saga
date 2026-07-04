@@ -1,1 +1,966 @@
-# lingo-saga
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚔️ LingoSaga｜冒険者ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ===== リセット & ベース ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a14;
+      --bg2:       #12121f;
+      --bg3:       #1a1a2e;
+      --border:    #2a2a45;
+      --purple:    #7c3aed;
+      --purple2:   #a78bfa;
+      --blue:      #4f46e5;
+      --cyan:      #06b6d4;
+      --gold:      #f59e0b;
+      --green:     #10b981;
+      --red:       #ef4444;
+      --text:      #e2e8f0;
+      --text2:     #94a3b8;
+      --text3:     #475569;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    a { color: var(--purple2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ===== レイアウト ===== */
+    .header {
+      background: linear-gradient(135deg, #0f0f1a, #1a0a2e);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .header-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--purple2);
+      letter-spacing: 0.05em;
+    }
+
+    .header-nav {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-nav {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-nav:hover, .btn-nav:focus {
+      border-color: var(--purple);
+      color: var(--purple2);
+      text-decoration: none;
+    }
+
+    .btn-nav.primary {
+      background: var(--purple);
+      border-color: var(--purple);
+      color: white;
+    }
+
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 16px;
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 320px 1fr;
+      grid-template-areas:
+        "card    radar"
+        "progress progress"
+        "graph   graph"
+        "history journal"
+        "setting setting";
+    }
+
+    @media (max-width: 768px) {
+      .main {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "card"
+          "radar"
+          "progress"
+          "graph"
+          "history"
+          "journal"
+          "setting";
+      }
+    }
+
+    /* ===== カード共通 ===== */
+    .card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--purple);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ===== 冒険者カード ===== */
+    .adventurer-card {
+      grid-area: card;
+      background: linear-gradient(160deg, #1a0a2e, #0f0f1a);
+      border: 1px solid #3d2a6e;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .adventurer-card::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 150px; height: 150px;
+      background: radial-gradient(circle, #7c3aed22, transparent 70%);
+      pointer-events: none;
+    }
+
+    .adventurer-name {
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .adventurer-title {
+      font-size: 0.82rem;
+      color: var(--purple2);
+      margin-bottom: 16px;
+    }
+
+    .class-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--purple), var(--blue));
+      color: white;
+      font-size: 0.8rem;
+      font-weight: bold;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+
+    .stat-row:last-of-type { border-bottom: none; }
+    .stat-row .label { color: var(--text2); }
+    .stat-row .val   { font-weight: bold; color: var(--purple2); }
+
+    .level-display {
+      text-align: center;
+      margin: 16px 0;
+    }
+
+    .level-display .lv-label {
+      font-size: 0.72rem;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .level-display .lv-num {
+      font-size: 3rem;
+      font-weight: bold;
+      color: var(--gold);
+      line-height: 1;
+      text-shadow: 0 0 20px #f59e0b44;
+    }
+
+    .level-display .lv-sub {
+      font-size: 0.8rem;
+      color: var(--text3);
+    }
+
+    .cefr-badge {
+      display: inline-block;
+      background: #1e1b4b;
+      border: 1px solid #4f46e5;
+      color: #818cf8;
+      font-size: 0.75rem;
+      padding: 2px 10px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
+    /* ===== プログレスバー ===== */
+    .progress-area { grid-area: progress; }
+
+    .progress-section { margin-bottom: 14px; }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      margin-bottom: 6px;
+    }
+
+    .progress-label .name { color: var(--text2); }
+    .progress-label .val  { color: var(--purple2); font-weight: bold; }
+
+    .progress-bar {
+      height: 10px;
+      background: var(--bg2);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.8s ease;
+    }
+
+    .fill-gold    { background: linear-gradient(90deg, #f59e0b, #fcd34d); }
+    .fill-purple  { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+    .fill-cyan    { background: linear-gradient(90deg, #06b6d4, #67e8f9); }
+
+    /* ===== レーダーチャート ===== */
+    .radar-area {
+      grid-area: radar;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .radar-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 280px;
+    }
+
+    /* ===== 成長グラフ ===== */
+    .graph-area { grid-area: graph; }
+
+    .graph-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tab-btn {
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: bold;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--purple);
+      border-color: var(--purple);
+      color: white;
+    }
+
+    /* ===== 履歴 ===== */
+    .history-area  { grid-area: history; }
+    .journal-area  { grid-area: journal; }
+
+    .session-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.83rem;
+    }
+
+    .session-item:last-child { border-bottom: none; }
+
+    .session-date  { color: var(--text3); font-size: 0.75rem; }
+    .session-topic { color: var(--text2); }
+    .session-level { color: var(--gold); font-weight: bold; white-space: nowrap; }
+    .session-exp   { color: var(--green); font-size: 0.75rem; }
+
+    .diff-badge {
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .diff-easy   { background: #052e1622; color: #34d399; border: 1px solid #10b98144; }
+    .diff-normal { background: #78350f22; color: #fbbf24; border: 1px solid #f59e0b44; }
+    .diff-hard   { background: #7f1d1d22; color: #f87171; border: 1px solid #ef444444; }
+
+    .journal-item {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+
+    .journal-item:last-child { border-bottom: none; }
+    .journal-date    { color: var(--text3); font-size: 0.72rem; margin-bottom: 4px; }
+    .journal-feeling { color: var(--purple2); margin-bottom: 4px; }
+    .journal-phrases { color: var(--cyan); font-size: 0.78rem; }
+
+    /* ===== 設定パネル ===== */
+    .setting-area { grid-area: setting; }
+
+    .setting-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    .setting-item label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+
+    .setting-item input {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.85rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .setting-item input:focus { border-color: var(--purple); }
+
+    .btn-save {
+      margin-top: 14px;
+      padding: 10px 24px;
+      background: var(--purple);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 0.88rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-save:hover { opacity: 0.85; }
+
+    .empty-msg {
+      color: var(--text3);
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    /* ===== ローディング ===== */
+    .loading-overlay {
+      position: fixed; inset: 0;
+      background: #0a0a14ee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--purple);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text { color: var(--text2); font-size: 0.9rem; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ローディング -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">データを読み込んでいます...</div>
+</div>
+
+<!-- ヘッダー -->
+<header class="header">
+  <div class="header-title">⚔️ LingoSaga ─ 冒険者ダッシュボード</div>
+  <nav class="header-nav">
+    <a href="relay.html" class="btn-nav primary">📋 セッション記録</a>
+    <button class="btn-nav" onclick="reloadData()">🔄 更新</button>
+  </nav>
+</header>
+
+<!-- メインコンテンツ -->
+<main class="main">
+
+  <!-- 冒険者カード -->
+  <div class="card adventurer-card">
+    <div class="card-title">⚔️ 冒険者</div>
+    <div class="adventurer-name" id="adventurerName">冒険者</div>
+    <div class="adventurer-title" id="adventurerTitle">英会話の旅を続けている</div>
+    <div class="class-badge" id="classBadge">🎭 Bard</div>
+
+    <div class="level-display">
+      <div class="lv-label">Current Level</div>
+      <div class="lv-num" id="currentLevel">---</div>
+      <div class="lv-sub">
+        <span id="cefrBadge" class="cefr-badge">--</span>
+        <span id="levelRange" style="color:var(--text3); font-size:0.75rem;"></span>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <span class="label">🎯 目標</span>
+      <span class="val" id="targetLabel">未設定</span>
+    </div>
+    <div class="stat-row">
+      <span class="label">📍 目標レベル</span>
+      <span class="val" id="targetLevel">---</span>
+    </div>
+    <div class="stat-row">
+      <span class="label">📏 残り</span>
+      <span class="val" id="remaining">---</span>
+    </div>
+    <div class="stat-row">
+      <span class="label">🧩 セッション数</span>
+      <span class="val" id="sessionCount">0回</span>
+    </div>
+    <div class="stat-row">
+      <span class="label">⭐ 累計EXP</span>
+      <span class="val" id="expTotal">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="label">🎖️ 冒険者ランク</span>
+      <span class="val" id="rankVal" style="color:var(--gold);">---</span>
+    </div>
+    <div class="stat-row">
+      <span class="label">⏫ 次のランクまで</span>
+      <span class="val" id="nextRankExp">---</span>
+    </div>
+    <div class="stat-row" style="border:none; padding-top:10px;">
+      <span class="label">⚠️ 弱点</span>
+      <span class="val" id="weakParams" style="font-size:0.78rem; color:var(--red);">---</span>
+    </div>
+  </div>
+
+  <!-- レーダーチャート -->
+  <div class="card radar-area">
+    <div class="card-title">📊 スキルレーダー（直近10回平均）</div>
+    <div class="radar-wrap">
+      <canvas id="radarChart"></canvas>
+    </div>
+  </div>
+
+  <!-- プログレスバー -->
+  <div class="card progress-area">
+    <div class="card-title">📈 進捗</div>
+    <div class="progress-section">
+      <div class="progress-label">
+        <span class="name">🏆 目標レベルまでの進捗</span>
+        <span class="val" id="goalPct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill fill-gold" id="goalBar" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="progress-section">
+      <div class="progress-label">
+        <span class="name">⭐ 現在レベル帯の進捗</span>
+        <span class="val" id="tierPct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill fill-purple" id="tierBar" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="progress-section" style="margin-bottom:0">
+      <div class="progress-label">
+        <span class="name">🎭 Bardスコア（表現力・流暢さ・自然さ・場の雰囲気）</span>
+        <span class="val" id="bardPct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill fill-cyan" id="bardBar" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 成長グラフ -->
+  <div class="card graph-area">
+    <div class="card-title">📉 成長グラフ</div>
+    <div class="graph-tabs">
+      <button class="tab-btn active" onclick="switchGraph('level', this)">レベル推移</button>
+      <button class="tab-btn" onclick="switchGraph('exp', this)">EXP推移</button>
+      <button class="tab-btn" onclick="switchGraph('params', this)">パラメーター推移</button>
+    </div>
+    <canvas id="growthChart" height="80"></canvas>
+  </div>
+
+  <!-- セッション履歴 -->
+  <div class="card history-area">
+    <div class="card-title">🗓️ セッション履歴</div>
+    <div id="historyList"><div class="empty-msg">データがありません</div></div>
+  </div>
+
+  <!-- ジャーナル -->
+  <div class="card journal-area">
+    <div class="card-title">📖 ジャーナル</div>
+    <div id="journalList"><div class="empty-msg">データがありません</div></div>
+  </div>
+
+  <!-- 設定 -->
+  <div class="card setting-area">
+    <div class="card-title">⚙️ 設定</div>
+    <div class="setting-grid">
+      <div class="setting-item">
+        <label>冒険者名</label>
+        <input type="text" id="settingName" placeholder="あなたの名前">
+      </div>
+      <div class="setting-item">
+        <label>GAS WebアプリのURL</label>
+        <input type="text" id="settingGasUrl" placeholder="https://script.google.com/macros/s/XXXXX/exec">
+      </div>
+    </div>
+    <button class="btn-save" onclick="saveSettings()">💾 設定を保存して再読み込み</button>
+  </div>
+
+</main>
+
+<script>
+// ============================================================
+// 設定 & 定数
+// ============================================================
+const STORAGE_KEYS = {
+  name:   'rpg_adventurer_name',
+  gasUrl: 'rpg_gas_url'
+};
+
+const PARAM_LABELS = {
+  pronunciation: '🎤 発音',
+  vocabulary:    '📚 語彙',
+  grammar:       '📝 文法',
+  fluency:       '💨 流暢さ',
+  listening:     '👂 聞き取り',
+  expression:    '💡 表現力',
+  naturalness:   '🌊 自然さ',
+  initiative:    '🚀 積極性',
+  pragmatics:    '🎭 場の雰囲気'
+};
+
+const BARD_PARAMS = ['expression', 'fluency', 'naturalness', 'pragmatics'];
+
+const LEVEL_TIERS = [
+  { min: 1,   max: 99,  label: '入門',      cefr: 'A1' },
+  { min: 100, max: 299, label: '初級',      cefr: 'A2〜B1' },
+  { min: 300, max: 499, label: '中級',      cefr: 'B1〜B2' },
+  { min: 500, max: 699, label: '上級',      cefr: 'B2〜C1' },
+  { min: 700, max: 899, label: '準ネイティブ', cefr: 'C1〜C2' },
+  { min: 900, max: 999, label: 'ネイティブ', cefr: 'C2+' }
+];
+
+const CLASS_ICONS = {
+  // 新職業システム（戦闘スタイル称号）
+  '戦士':     '⚔️',
+  '武闘家':   '🥋',
+  '魔法使い': '🧙',
+  '僧侶':     '🙏',
+  '盗賊':     '🗡️',
+  '吟遊詩人': '🎻',
+  '遊び人':   '🃏',
+  '商人':     '💼',
+  '賢者':     '👑',
+  // 旧クラス名（互換用）
+  Traveler: '🧭',
+  Scholar:  '📖',
+  Bard:     '🎭',
+  Diplomat: '🤝'
+};
+
+let radarChart  = null;
+let growthChart = null;
+let sessionData = [];
+
+// ============================================================
+// 初期化
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  loadSettingsToForm();
+  loadData();
+});
+
+function loadSettingsToForm() {
+  document.getElementById('settingName').value   = localStorage.getItem(STORAGE_KEYS.name)   || '';
+  document.getElementById('settingGasUrl').value = localStorage.getItem(STORAGE_KEYS.gasUrl) || '';
+}
+
+function saveSettings() {
+  localStorage.setItem(STORAGE_KEYS.name,   document.getElementById('settingName').value.trim());
+  localStorage.setItem(STORAGE_KEYS.gasUrl, document.getElementById('settingGasUrl').value.trim());
+  loadData();
+}
+
+function reloadData() { loadData(); }
+
+// ============================================================
+// データ読み込み
+// ============================================================
+async function loadData() {
+  const gasUrl = localStorage.getItem(STORAGE_KEYS.gasUrl);
+
+  // GAS URLが未設定のときはデモデータで表示
+  if (!gasUrl) {
+    renderAll(getDemoData(), []);
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    return;
+  }
+
+  try {
+    // ダッシュボードデータ
+    const dashRes  = await fetch(`${gasUrl}?action=getDashboard`);
+    const dashJson = await dashRes.json();
+
+    // セッション履歴データ
+    const sessRes  = await fetch(`${gasUrl}?action=getSessions`);
+    const sessJson = await sessRes.json();
+
+    const sessions = (sessJson.status === 'success') ? sessJson.data : [];
+    const data     = (dashJson.status === 'success') ? dashJson.data : {};
+
+    renderAll(data, sessions);
+  } catch(e) {
+    console.warn('データ読み込みエラー（デモ表示）:', e);
+    renderAll(getDemoData(), []);
+  } finally {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+  }
+}
+
+// ============================================================
+// デモデータ
+// ============================================================
+function getDemoData() {
+  return {
+    session_count:        '3',
+    exp_total:            '1240',
+    current_level:        '315',
+    cefr:                 'B1',
+    class:                'Bard',
+    avg_pronunciation:    '72',
+    avg_vocabulary:       '68',
+    avg_grammar:          '75',
+    avg_fluency:          '70',
+    avg_listening:        '65',
+    avg_expression:       '71',
+    avg_naturalness:      '66',
+    avg_initiative:       '60',
+    avg_pragmatics:       '63',
+    rank:                 'G',
+    next_rank_exp:        '760',
+    tutorial:             'true',
+    tutorial_count:       '3',
+    target_level:         '700',
+    target_label:         '全国通訳案内士',
+    remaining:            '385',
+    weak_params:          'initiative, listening, pragmatics',
+    history_json:         JSON.stringify([
+      { date:'2026-06-07', topic:'日常・雑談',    difficulty:'Normal', level:315, cefr:'B1', exp_gained:420 },
+      { date:'2026-06-05', topic:'観光・案内',    difficulty:'Easy',   level:298, cefr:'A2', exp_gained:280 },
+      { date:'2026-06-03', topic:'意見・議論',    difficulty:'Hard',   level:280, cefr:'A2', exp_gained:540 }
+    ])
+  };
+}
+
+// ============================================================
+// 全体レンダリング
+// ============================================================
+function renderAll(data, sessions) {
+  sessionData = sessions;
+  renderAdventurerCard(data);
+  renderProgressBars(data);
+  renderRadarChart(data);
+  renderGrowthChart(sessions, 'level');
+  renderHistory(sessions.length > 0 ? sessions : tryParseHistory(data.history_json));
+  renderJournal(sessions.length > 0 ? sessions : tryParseHistory(data.history_json));
+}
+
+function tryParseHistory(json) {
+  try { return JSON.parse(json) || []; } catch { return []; }
+}
+
+// ============================================================
+// 冒険者カード
+// ============================================================
+function renderAdventurerCard(data) {
+  const name      = localStorage.getItem(STORAGE_KEYS.name) || '冒険者';
+  const level     = parseInt(data.current_level) || 0;
+  const cls       = data.class || 'Traveler';
+  const icon      = CLASS_ICONS[cls] || '⚔️';
+  const tier      = LEVEL_TIERS.find(t => level >= t.min && level <= t.max) || LEVEL_TIERS[0];
+  const weakArr   = (data.weak_params || '').split(',').map(s => s.trim()).filter(Boolean);
+  const weakLabels = weakArr.map(k => PARAM_LABELS[k] || k).join('  ');
+
+  document.getElementById('adventurerName').textContent    = name;
+  document.getElementById('adventurerTitle').textContent   = `${tier.label}の冒険者（${tier.cefr}）`;
+  document.getElementById('classBadge').textContent        = `${icon} ${cls}`;
+  document.getElementById('currentLevel').textContent      = level || '---';
+  document.getElementById('cefrBadge').textContent         = data.cefr || '--';
+  document.getElementById('levelRange').textContent        = ` / 999`;
+  document.getElementById('targetLabel').textContent       = data.target_label || '未設定';
+  document.getElementById('targetLevel').textContent       = data.target_level ? `Lv.${data.target_level}` : '---';
+  document.getElementById('remaining').textContent         = data.remaining ? `${data.remaining} Lv.` : '---';
+  document.getElementById('sessionCount').textContent      = `${data.session_count || 0}回`;
+  document.getElementById('expTotal').textContent          = Number(data.exp_total || 0).toLocaleString() + ' EXP';
+  document.getElementById('weakParams').textContent        = weakLabels || '---';
+
+  // 冒険者ランク（累計EXP制・下がらない）
+  document.getElementById('rankVal').textContent =
+    data.rank ? `${data.rank} ランク` : '---';
+  document.getElementById('nextRankExp').textContent =
+    (data.next_rank_exp && Number(data.next_rank_exp) > 0)
+      ? Number(data.next_rank_exp).toLocaleString() + ' EXP'
+      : (data.rank === 'S' ? '最高位！' : '---');
+
+  // チュートリアル期間中の表示
+  const isTutorial = data.tutorial === true || data.tutorial === 'true';
+  if (isTutorial) {
+    document.getElementById('adventurerTitle').textContent =
+      `🔰 チュートリアル中（${data.tutorial_count || 0}/10回）レベル確定までデータ収集中`;
+  }
+}
+
+// ============================================================
+// プログレスバー
+// ============================================================
+function renderProgressBars(data) {
+  const level       = parseInt(data.current_level) || 0;
+  const targetLevel = parseInt(data.target_level)  || 999;
+
+  // 目標レベルまでの進捗
+  const goalPct = Math.min(100, Math.round(level / targetLevel * 100));
+  document.getElementById('goalPct').textContent     = goalPct + '%';
+  document.getElementById('goalBar').style.width     = goalPct + '%';
+
+  // 現在レベル帯の進捗
+  const tier    = LEVEL_TIERS.find(t => level >= t.min && level <= t.max) || LEVEL_TIERS[0];
+  const tierPct = Math.round((level - tier.min) / (tier.max - tier.min) * 100);
+  document.getElementById('tierPct').textContent     = tierPct + '%';
+  document.getElementById('tierBar').style.width     = tierPct + '%';
+
+  // Bardスコア
+  const bardVals = BARD_PARAMS.map(k => parseFloat(data['avg_' + k]) || 0);
+  const bardAvg  = bardVals.reduce((a, b) => a + b, 0) / bardVals.length;
+  const bardPct  = Math.round(bardAvg / 99 * 100);
+  document.getElementById('bardPct').textContent     = bardPct + '%';
+  document.getElementById('bardBar').style.width     = bardPct + '%';
+}
+
+// ============================================================
+// レーダーチャート
+// ============================================================
+function renderRadarChart(data) {
+  const labels = Object.values(PARAM_LABELS);
+  const values = Object.keys(PARAM_LABELS).map(k => parseFloat(data['avg_' + k]) || 0);
+
+  if (radarChart) radarChart.destroy();
+
+  radarChart = new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'スキル',
+        data: values,
+        backgroundColor: 'rgba(124, 58, 237, 0.2)',
+        borderColor: '#7c3aed',
+        pointBackgroundColor: '#a78bfa',
+        pointBorderColor: '#7c3aed',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        r: {
+          min: 0, max: 99,
+          ticks: { stepSize: 20, color: '#475569', font: { size: 10 } },
+          grid:        { color: '#2a2a45' },
+          angleLines:  { color: '#2a2a45' },
+          pointLabels: { color: '#94a3b8', font: { size: 11 } }
+        }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+// ============================================================
+// 成長グラフ
+// ============================================================
+function switchGraph(type, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderGrowthChart(sessionData, type);
+}
+
+function renderGrowthChart(sessions, type) {
+  if (growthChart) growthChart.destroy();
+
+  const sorted = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const labels = sorted.map(s => s.date || '');
+
+  let datasets = [];
+
+  if (type === 'level') {
+    datasets = [{
+      label: 'レベル',
+      data: sorted.map(s => parseInt(s.level) || 0),
+      borderColor: '#f59e0b',
+      backgroundColor: 'rgba(245, 158, 11, 0.08)',
+      tension: 0.3, fill: true, pointRadius: 4
+    }];
+  } else if (type === 'exp') {
+    let cumExp = 0;
+    datasets = [{
+      label: '累計EXP',
+      data: sorted.map(s => { cumExp += parseInt(s.exp_gained) || 0; return cumExp; }),
+      borderColor: '#10b981',
+      backgroundColor: 'rgba(16, 185, 129, 0.08)',
+      tension: 0.3, fill: true, pointRadius: 4
+    }];
+  } else if (type === 'params') {
+    const colors = ['#7c3aed','#06b6d4','#f59e0b','#10b981','#ef4444','#8b5cf6','#0ea5e9','#f97316','#ec4899'];
+    datasets = Object.keys(PARAM_LABELS).map((k, i) => ({
+      label: PARAM_LABELS[k],
+      data: sorted.map(s => parseInt(s[k]) || 0),
+      borderColor: colors[i],
+      backgroundColor: 'transparent',
+      tension: 0.3, pointRadius: 3, borderWidth: 2
+    }));
+  }
+
+  growthChart = new Chart(document.getElementById('growthChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          display: type === 'params',
+          labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#475569', font: { size: 11 } }, grid: { color: '#1e1e35' } },
+        y: { ticks: { color: '#475569', font: { size: 11 } }, grid: { color: '#1e1e35' } }
+      }
+    }
+  });
+}
+
+// ============================================================
+// セッション履歴
+// ============================================================
+function renderHistory(sessions) {
+  const el = document.getElementById('historyList');
+  if (!sessions || sessions.length === 0) {
+    el.innerHTML = '<div class="empty-msg">セッションデータがありません</div>';
+    return;
+  }
+
+  const recent = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+
+  el.innerHTML = recent.map(s => {
+    const diff = s.difficulty || 'Normal';
+    const diffClass = diff === 'Easy' ? 'diff-easy' : diff === 'Hard' ? 'diff-hard' : 'diff-normal';
+    return `
+      <div class="session-item">
+        <div>
+          <div class="session-date">${s.date || ''}</div>
+          <div class="session-topic">${s.topic || ''}</div>
+          <div class="session-exp">+${s.exp_gained || 0} EXP</div>
+        </div>
+        <div style="text-align:right; flex-shrink:0;">
+          <div class="session-level">Lv.${s.level || '--'}</div>
+          <div style="margin-top:4px;"><span class="diff-badge ${diffClass}">${diff}</span></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ============================================================
+// ジャーナル
+// ============================================================
+function renderJournal(sessions) {
+  const el = document.getElementById('journalList');
+  if (!sessions || sessions.length === 0) {
+    el.innerHTML = '<div class="empty-msg">ジャーナルデータがありません</div>';
+    return;
+  }
+
+  const recent = [...sessions]
+    .filter(s => s.feeling || s.phrases_learned)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 8);
+
+  if (recent.length === 0) {
+    el.innerHTML = '<div class="empty-msg">ジャーナルデータがありません</div>';
+    return;
+  }
+
+  el.innerHTML = recent.map(s => `
+    <div class="journal-item">
+      <div class="journal-date">${s.date || ''} ／ ${s.topic || ''}</div>
+      <div class="journal-feeling">${s.feeling || ''}</div>
+      ${s.phrases_learned ? `<div class="journal-phrases">💡 ${s.phrases_learned}</div>` : ''}
+    </div>`
+  ).join('');
+}
+</script>
+</body>
+</html>
