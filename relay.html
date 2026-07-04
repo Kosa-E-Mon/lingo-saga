@@ -309,35 +309,57 @@
     pragmatics:    '🎭 場の雰囲気'
   };
 
+  // GPTs v4のフラット形式JSONを取り出す。
+  // ```json フェンスや前後の説明文が混ざっていても、最初の { から最後の } までを拾う
+  function extractJson(raw) {
+    const start = raw.indexOf('{');
+    const end   = raw.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) return null;
+    try {
+      return JSON.parse(raw.slice(start, end + 1));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function estimateExp(data) {
+    const mult = { 'Easy': 0.8, 'Normal': 1.0, 'Hard': 1.5 }[data.difficulty] || 1.0;
+    const vals = Object.keys(PARAM_LABELS).map(k => Number(data[k]) || 0);
+    const avg  = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return Math.round((Number(data.minutes) || 10) * 10 * mult * (avg / 50));
+  }
+
   function parsePreview() {
     const raw = document.getElementById('jsonInput').value.trim();
     if (!raw) return alert('JSONを貼り付けてください');
 
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch(e) {
-      alert('JSONの形式が正しくありません。\nGPTsの出力をそのままコピーしてください。');
+    const data = extractJson(raw);
+    if (!data) {
+      alert('JSONの形式が正しくありません。\nGPTsの出力のJSON部分をそのままコピーしてください。');
+      return;
+    }
+    if (data.level === undefined || data.topic === undefined) {
+      alert('JSONの内容が想定と違います（level・topicが見つかりません）。\nGPTsのプロンプトが最新版(v4)か確認してください。');
       return;
     }
 
-    // プレビューグリッド
+    // プレビューグリッド（v4フラット形式）
     const grid = document.getElementById('previewGrid');
     grid.innerHTML = `
-      <div class="preview-item"><div class="label">📅 日付</div><div class="value">${data.session.date}</div></div>
-      <div class="preview-item"><div class="label">⏱️ 時間</div><div class="value">${data.session.duration_min}分</div></div>
-      <div class="preview-item"><div class="label">🎯 トピック</div><div class="value">${data.session.topic}</div></div>
-      <div class="preview-item"><div class="label">⚔️ 難易度</div><div class="value">${data.session.difficulty}</div></div>
-      <div class="preview-item"><div class="label">🏆 レベル</div><div class="value">Lv.${data.score.level}</div></div>
-      <div class="preview-item"><div class="label">📊 CEFR</div><div class="value">${data.score.cefr}</div></div>
-      <div class="preview-item"><div class="label">🎭 クラス</div><div class="value">${data.score.class}</div></div>
-      <div class="preview-item"><div class="label">⭐ 獲得EXP</div><div class="value">+${data.score.exp_gained}</div></div>
+      <div class="preview-item"><div class="label">📅 日付</div><div class="value">${data.date || '今日'}</div></div>
+      <div class="preview-item"><div class="label">⏱️ 時間</div><div class="value">${data.minutes}分</div></div>
+      <div class="preview-item"><div class="label">🎯 トピック</div><div class="value">${data.topic}</div></div>
+      <div class="preview-item"><div class="label">⚔️ 難易度</div><div class="value">${data.difficulty}</div></div>
+      <div class="preview-item"><div class="label">🏆 レベル</div><div class="value">Lv.${data.level}</div></div>
+      <div class="preview-item"><div class="label">📊 CEFR</div><div class="value">${data.cefr || '--'}</div></div>
+      <div class="preview-item"><div class="label">🎭 職業</div><div class="value">${data.class || '--'}</div></div>
+      <div class="preview-item"><div class="label">⭐ 獲得EXP（見込み）</div><div class="value">+${estimateExp(data)}</div></div>
     `;
 
     // パラメーターバー
     const params = document.getElementById('paramsGrid');
     params.innerHTML = Object.entries(PARAM_LABELS).map(([key, label]) => {
-      const val = data.parameters[key] || 0;
+      const val = Number(data[key]) || 0;
       const pct = (val / 99 * 100).toFixed(0);
       return `
         <div class="param-bar">
@@ -347,13 +369,13 @@
         </div>`;
     }).join('');
 
-    // スタディログ
-    const log = data.study_log;
+    // スタディログ（v4は文字列。phrases_learnedは「;」区切り）
+    const phrases = String(data.phrases_learned || '').split(';').map(s => s.trim()).filter(Boolean);
     document.getElementById('studyLogPreview').innerHTML = `
-      <div style="margin-bottom:6px;"><span style="color:#34d399">✅ 良かった点：</span>${(log.good_points||[]).join('、')}</div>
-      <div style="margin-bottom:6px;"><span style="color:#f87171">⚠️ 改善点：</span>${(log.improvements||[]).join('、')}</div>
-      <div style="margin-bottom:6px;"><span style="color:#fbbf24">💡 フレーズ：</span>${(log.phrases_learned||[]).join('、')}</div>
-      <div><span style="color:#60a5fa">🎯 次回：</span>${log.next_focus||''}</div>
+      <div style="margin-bottom:6px;"><span style="color:#34d399">✅ 良かった点：</span>${data.good_points || ''}</div>
+      <div style="margin-bottom:6px;"><span style="color:#f87171">⚠️ 改善点：</span>${data.improve_points || ''}</div>
+      <div style="margin-bottom:6px;"><span style="color:#fbbf24">💡 フレーズ：</span>${phrases.join('、')}</div>
+      <div><span style="color:#60a5fa">📝 総評：</span>${data.feeling || ''}</div>
     `;
 
     document.getElementById('previewCard').classList.add('show');
@@ -363,11 +385,9 @@
     const gasUrl = document.getElementById('gasUrl').value.trim();
     if (!gasUrl) return alert('GAS WebアプリのURLを設定してください');
 
-    const raw = document.getElementById('jsonInput').value.trim();
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch(e) {
+    const raw  = document.getElementById('jsonInput').value.trim();
+    const data = extractJson(raw);
+    if (!data) {
       alert('JSONの形式が正しくありません');
       return;
     }
