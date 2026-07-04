@@ -1,63 +1,399 @@
-# ⚔️ LingoSaga
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 英会話RPG｜セッション記録</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-**英会話 × RPG ─ あなたの英語修行を、一人の冒険者の成長物語（サーガ）に。**
+    body {
+      font-family: 'Segoe UI', 'Hiragino Sans', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
 
-ChatGPTのAdvanced Voice Modeで英会話し、その結果を記録してレベルアップしていく個人用トレーニングゲームです。データはすべて**あなた自身のGoogleスプレッドシート**に保存されます。開発者を含む第三者があなたのデータにアクセスすることはありません。
+    .container {
+      width: 100%;
+      max-width: 640px;
+    }
 
-## 🎮 ゲームの仕組み
+    h1 {
+      text-align: center;
+      font-size: 1.4rem;
+      color: #a78bfa;
+      margin-bottom: 6px;
+      letter-spacing: 0.05em;
+    }
 
-**二層構造：**
+    .subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
 
-| | ⭐ 実力レベル（Lv.1〜999） | 🎖️ 冒険者ランク（G〜S） |
-|---|---|---|
-| 意味 | 今の本当の腕前（測定値） | 積み上げた修行の証 |
-| 変動 | 調子により上下する | 絶対に下がらない |
+    .card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
 
-- 会話するたびに9つのパラメーター（発音・語彙・文法・流暢さ・聞き取り・表現力・自然さ・積極性・場の雰囲気）で採点
-- セッションごとに「今日の戦い方」を職業判定（⚔️戦士・🧙魔法使い・🙏僧侶・🃏遊び人・👑賢者 など全9職）
-- EXPを貯めてランクアップ。最初の10回はチュートリアル期間
-- 最上位ジョブへの転職条件は**現実の実績のみ**（試験合格・海外一人旅・登壇など）。ゲームは修行の場、本番は現実。
+    .card h2 {
+      font-size: 0.9rem;
+      color: #7c3aed;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
 
-詳細は [docs/design.md](docs/design.md) を参照。
+    textarea {
+      width: 100%;
+      height: 180px;
+      background: #0f0f1a;
+      border: 1px solid #3d3d6e;
+      border-radius: 8px;
+      color: #c4b5fd;
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      padding: 12px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
 
-## 🚀 セットアップ（約10分）
+    textarea:focus { border-color: #7c3aed; }
 
-### 1. スプレッドシートとGASを用意
-1. 新規Googleスプレッドシートを作成
-2. メニュー「拡張機能 → Apps Script」を開く
-3. 初期コードを全て消し、このリポジトリの `code.gs` を貼り付けて保存
-4. 関数 `setup` を選んで ▶ 実行（初回は承認ダイアログを許可）
-5. 「デプロイ → 新しいデプロイ → ウェブアプリ」
-   - アクセスできるユーザー：**全員**
-   - デプロイしてURLをコピー
+    textarea::placeholder { color: #4a4a6a; }
 
-### 2. アプリにURLを設定
-1. [ダッシュボード](https://kosa-e-mon.github.io/lingo-saga/) を開く
-2. 設定欄にGASのURLを貼って保存（relay.htmlと共通）
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 12px;
+    }
 
-### 3. GPTsを作成
-1. ChatGPTで「GPTを作成」
-2. Instructionsに `docs/gpts_prompt.md` の内容を貼り付け
-3. Advanced Voice Modeで会話開始！
+    .btn-primary {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: white;
+    }
 
-### 4. プレイの流れ
-```
-GPTsと英語で会話（5〜15分）
-　→ 終了時にJSONが出力される
-　→ セッション記録画面（relay.html）に貼り付けて送信
-　→ EXP獲得！ダッシュボードで成長を確認
-```
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-## ⚙️ 運用メモ
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid #3d3d6e;
+      color: #9ca3af;
+      font-size: 0.85rem;
+      padding: 10px;
+    }
 
-- GASのコードを更新したときは「新しいデプロイ」ではなく既存デプロイの**バージョン更新**を選ぶこと（URLが変わらない）
-- 最初からやり直したいときは、Apps Script画面から `resetAllData` を実行
+    .btn-secondary:hover { border-color: #7c3aed; color: #a78bfa; }
 
-## 📜 クレジット
+    .status {
+      text-align: center;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-top: 12px;
+      display: none;
+    }
 
-企画・開発：Masato Kosaka（[@Kosa-E-Mon](https://github.com/Kosa-E-Mon)）
-開発協力：Claude (Anthropic)
+    .status.success {
+      background: #064e3b22;
+      border: 1px solid #059669;
+      color: #34d399;
+      display: block;
+    }
 
-## License
+    .status.error {
+      background: #7f1d1d22;
+      border: 1px solid #dc2626;
+      color: #f87171;
+      display: block;
+    }
 
-MIT
+    .status.loading {
+      background: #1e1b4b22;
+      border: 1px solid #4f46e5;
+      color: #818cf8;
+      display: block;
+    }
+
+    /* プレビューカード */
+    .preview { display: none; }
+    .preview.show { display: block; }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .preview-item {
+      background: #0f0f1a;
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+
+    .preview-item .label {
+      font-size: 0.7rem;
+      color: #6b7280;
+      margin-bottom: 2px;
+    }
+
+    .preview-item .value {
+      font-size: 1rem;
+      color: #c4b5fd;
+      font-weight: bold;
+    }
+
+    .params-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .param-bar {
+      background: #0f0f1a;
+      border-radius: 6px;
+      padding: 8px;
+    }
+
+    .param-bar .name {
+      font-size: 0.68rem;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .param-bar .bar-wrap {
+      background: #1e1e3a;
+      border-radius: 4px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    .param-bar .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed, #06b6d4);
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .param-bar .score {
+      font-size: 0.75rem;
+      color: #a78bfa;
+      margin-top: 3px;
+      text-align: right;
+    }
+
+    .gas-url-section {
+      margin-bottom: 16px;
+    }
+
+    .gas-url-section input {
+      width: 100%;
+      background: #0f0f1a;
+      border: 1px solid #3d3d6e;
+      border-radius: 8px;
+      color: #9ca3af;
+      font-size: 0.82rem;
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    .gas-url-section input:focus { border-color: #7c3aed; color: #e0e0f0; }
+
+    .gas-url-section label {
+      font-size: 0.8rem;
+      color: #6b7280;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #2d2d4e;
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>🎮 英会話RPG｜セッション記録</h1>
+  <p class="subtitle">GPTsのJSONをここに貼り付けてスプレッドシートに保存</p>
+
+  <!-- GAS URL設定 -->
+  <div class="card gas-url-section">
+    <h2>⚙️ 設定</h2>
+    <label>GAS WebアプリのURL（初回のみ設定）</label>
+    <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/XXXXX/exec">
+  </div>
+
+  <!-- JSONインプット -->
+  <div class="card">
+    <h2>📋 JSONを貼り付け</h2>
+    <textarea id="jsonInput" placeholder='GPTsのセッション終了後に出力されるJSONをここに貼り付けてください。
+
+{
+  "session": { ... },
+  "score": { ... },
+  ...
+}'></textarea>
+
+    <button class="btn btn-secondary" onclick="parsePreview()" style="margin-top:8px;">
+      👁️ プレビュー確認
+    </button>
+  </div>
+
+  <!-- プレビュー -->
+  <div class="card preview" id="previewCard">
+    <h2>📊 セッション確認</h2>
+    <div class="preview-grid" id="previewGrid"></div>
+    <hr class="divider">
+    <div class="params-grid" id="paramsGrid"></div>
+    <hr class="divider">
+    <div id="studyLogPreview" style="font-size:0.82rem; color:#9ca3af; line-height:1.6;"></div>
+
+    <button class="btn btn-primary" id="submitBtn" onclick="submitData()">
+      🚀 スプレッドシートに記録する
+    </button>
+
+    <div class="status" id="statusMsg"></div>
+  </div>
+
+</div>
+
+<script>
+  const GAS_URL_KEY = 'rpg_gas_url';
+
+  // GAS URLをlocalStorageから復元
+  window.onload = () => {
+    const saved = localStorage.getItem(GAS_URL_KEY);
+    if (saved) document.getElementById('gasUrl').value = saved;
+  };
+
+  // URLを保存
+  document.getElementById('gasUrl').addEventListener('change', (e) => {
+    localStorage.setItem(GAS_URL_KEY, e.target.value);
+  });
+
+  const PARAM_LABELS = {
+    pronunciation: '🎤 発音',
+    vocabulary:    '📚 語彙',
+    grammar:       '📝 文法',
+    fluency:       '💨 流暢さ',
+    listening:     '👂 聞き取り',
+    expression:    '💡 表現力',
+    naturalness:   '🌊 自然さ',
+    initiative:    '🚀 積極性',
+    pragmatics:    '🎭 場の雰囲気'
+  };
+
+  function parsePreview() {
+    const raw = document.getElementById('jsonInput').value.trim();
+    if (!raw) return alert('JSONを貼り付けてください');
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch(e) {
+      alert('JSONの形式が正しくありません。\nGPTsの出力をそのままコピーしてください。');
+      return;
+    }
+
+    // プレビューグリッド
+    const grid = document.getElementById('previewGrid');
+    grid.innerHTML = `
+      <div class="preview-item"><div class="label">📅 日付</div><div class="value">${data.session.date}</div></div>
+      <div class="preview-item"><div class="label">⏱️ 時間</div><div class="value">${data.session.duration_min}分</div></div>
+      <div class="preview-item"><div class="label">🎯 トピック</div><div class="value">${data.session.topic}</div></div>
+      <div class="preview-item"><div class="label">⚔️ 難易度</div><div class="value">${data.session.difficulty}</div></div>
+      <div class="preview-item"><div class="label">🏆 レベル</div><div class="value">Lv.${data.score.level}</div></div>
+      <div class="preview-item"><div class="label">📊 CEFR</div><div class="value">${data.score.cefr}</div></div>
+      <div class="preview-item"><div class="label">🎭 クラス</div><div class="value">${data.score.class}</div></div>
+      <div class="preview-item"><div class="label">⭐ 獲得EXP</div><div class="value">+${data.score.exp_gained}</div></div>
+    `;
+
+    // パラメーターバー
+    const params = document.getElementById('paramsGrid');
+    params.innerHTML = Object.entries(PARAM_LABELS).map(([key, label]) => {
+      const val = data.parameters[key] || 0;
+      const pct = (val / 99 * 100).toFixed(0);
+      return `
+        <div class="param-bar">
+          <div class="name">${label}</div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="score">${val}/99</div>
+        </div>`;
+    }).join('');
+
+    // スタディログ
+    const log = data.study_log;
+    document.getElementById('studyLogPreview').innerHTML = `
+      <div style="margin-bottom:6px;"><span style="color:#34d399">✅ 良かった点：</span>${(log.good_points||[]).join('、')}</div>
+      <div style="margin-bottom:6px;"><span style="color:#f87171">⚠️ 改善点：</span>${(log.improvements||[]).join('、')}</div>
+      <div style="margin-bottom:6px;"><span style="color:#fbbf24">💡 フレーズ：</span>${(log.phrases_learned||[]).join('、')}</div>
+      <div><span style="color:#60a5fa">🎯 次回：</span>${log.next_focus||''}</div>
+    `;
+
+    document.getElementById('previewCard').classList.add('show');
+  }
+
+  async function submitData() {
+    const gasUrl = document.getElementById('gasUrl').value.trim();
+    if (!gasUrl) return alert('GAS WebアプリのURLを設定してください');
+
+    const raw = document.getElementById('jsonInput').value.trim();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch(e) {
+      alert('JSONの形式が正しくありません');
+      return;
+    }
+
+    const btn    = document.getElementById('submitBtn');
+    const status = document.getElementById('statusMsg');
+
+    btn.disabled = true;
+    status.className = 'status loading';
+    status.textContent = '⏳ スプレッドシートに送信中...';
+
+    try {
+      // GASはCORSの関係でno-corsで送信
+      await fetch(gasUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      status.className = 'status success';
+      status.textContent = '✅ 記録完了！スプレッドシートに保存されました。';
+      btn.textContent = '✅ 記録済み';
+
+    } catch(e) {
+      status.className = 'status error';
+      status.textContent = '❌ 送信に失敗しました。GASのURLを確認してください。';
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>

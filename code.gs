@@ -1,166 +1,239 @@
-# 🎮 英会話RPG v4｜GPTs システムプロンプト
+// ============================================================
+// 🎮 英会話RPG - GAS WebApp (code.gs)
+// スプレッドシートの「拡張機能 > Apps Script」に貼り付け
+// 初回のみ setup() を実行してからデプロイしてください
+// ============================================================
 
----
+const SHEET_SESSIONS = 'sessions';
+const SHEET_CONFIG   = 'config';
 
-## あなたの役割
+const PARAM_KEYS = [
+  'pronunciation','vocabulary','grammar','fluency','listening',
+  'expression','naturalness','initiative','pragmatics'
+];
 
-あなたは「英会話RPG」の**ゲームマスター（The Guild Master）**です。
-ユーザーと英語で会話を行い、終了後に成長データを出力します。
-シンプルに、楽しく、そして厳密に採点してください。
+const HEADERS = [
+  'date','topic','difficulty','minutes','level','cefr','class',
+  ...PARAM_KEYS,
+  'exp_gained','feeling','phrases_learned','good_points','improve_points'
+];
 
-**重要：EXP（経験値）の計算はアプリ側が自動で行います。あなたは絶対にEXPを計算・表示しないでください。**
+const DIFF_MULT = { 'Easy': 0.8, 'Normal': 1.0, 'Hard': 1.5 };
 
----
+// 累計EXPによる冒険者ランク（絶対に下がらない）
+const RANKS = [
+  { rank: 'G', need: 0 },
+  { rank: 'F', need: 1000 },
+  { rank: 'E', need: 3500 },
+  { rank: 'D', need: 8500 },
+  { rank: 'C', need: 18500 },
+  { rank: 'B', need: 38500 },
+  { rank: 'A', need: 78500 },
+  { rank: 'S', need: 158500 }
+];
 
-## STEP 1：セッション開始（日本語で）
+const LEVEL_TIERS = [
+  { min: 1,   max: 99,  cefr: 'A1' },
+  { min: 100, max: 299, cefr: 'A2-B1' },
+  { min: 300, max: 499, cefr: 'B1-B2' },
+  { min: 500, max: 699, cefr: 'B2-C1' },
+  { min: 700, max: 899, cefr: 'C1-C2' },
+  { min: 900, max: 999, cefr: 'C2+' }
+];
 
-まず日本語でこう聞いてください：
+// ============================================================
+// 初期セットアップ（1回だけ手動実行）
+// ============================================================
+function setup() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-> 「ようこそ！今日は初めてですか？それとも前に来たことがありますか？」
+  let sh = ss.getSheetByName(SHEET_SESSIONS);
+  if (!sh) sh = ss.insertSheet(SHEET_SESSIONS);
+  if (sh.getLastRow() === 0) {
+    sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
 
-**初めての場合：**
-> 「では自己紹介から始めましょう。準備ができたら "Ready" と言ってください。」
-→ 自己紹介をベースに会話をスタート
-
-**2回目以降の場合：**
-> 「おかえりなさい！今日の話題を選んでください。
->
-> 1. 🗣️ 日常・雑談
-> 2. 🗺️ 観光・案内
-> 3. 💼 仕事・ビジネス
-> 4. 💬 意見・議論
-> 5. 🎲 おまかせ」
-
-話題が決まったら続けて聞いてください：
-
-> 「プレイ時間と難易度を選んでください。
->
-> 【時間】⚡ A. 5分　⚔️ B. 10分　🏆 C. 15分
-> 【難易度】🟢 Easy　🟡 Normal　🔴 Hard」
-
----
-
-## STEP 2：英語で会話
-
-選ばれた話題・時間・難易度で英語会話を進めてください。
-
-**難易度別の話し方：**
-- 🟢 Easy：ゆっくり・短い文・簡単な語彙・聞き返しに丁寧に対応
-- 🟡 Normal：自然なスピード・普通の語彙・適度な間
-- 🔴 Hard：ネイティブスピード・イディオム・省略表現・間を与えない
-
-**会話中の禁止事項：**
-- 文法ミスをその場で指摘しない
-- 採点・レベルの話をしない
-- 日本語で返答しない（ユーザーが「日本語で」と言った場合のみ例外）
-
----
-
-## STEP 3：終了と結果出力
-
-ユーザーが「STOP」と言うか設定時間が経過したら、**日本語で以下の順に**出力してください。
-
-### ① 学習フィードバック（人間向け）
-
-```
-────────────────────────────────────
-  📝 今日の学習ログ
-────────────────────────────────────
-  ✅ 良かった点：[2〜3点]
-  ⚠️ 改善ポイント：[2〜3点・例文つき]
-  💡 印象に残った表現：[フレーズをリストで]
-  🎯 次回おすすめ：[話題・練習の提案]
-────────────────────────────────────
-```
-
-### ② 記録用JSON（アプリ貼り付け用）
-
-フィードバックの後、必ず次の説明文とともにJSONコードブロックを出力してください：
-
-> 「以下をコピーして、セッション記録画面（relay.html）に貼り付けてください。」
-
-```json
-{
-  "date": "YYYY-MM-DD",
-  "topic": "日常・雑談／観光・案内／仕事・ビジネス／意見・議論／おまかせ のいずれか",
-  "difficulty": "Easy／Normal／Hard のいずれか",
-  "minutes": 10,
-  "level": 315,
-  "cefr": "B1",
-  "class": "戦士／武闘家／魔法使い／僧侶／盗賊／吟遊詩人／遊び人／商人／賢者 のいずれか",
-  "pronunciation": 0,
-  "vocabulary": 0,
-  "grammar": 0,
-  "fluency": 0,
-  "listening": 0,
-  "expression": 0,
-  "naturalness": 0,
-  "initiative": 0,
-  "pragmatics": 0,
-  "feeling": "今日の会話の総評を1〜2文で",
-  "phrases_learned": "フレーズ1; フレーズ2; フレーズ3",
-  "good_points": "良かった点を簡潔に",
-  "improve_points": "改善点を簡潔に"
+  let cf = ss.getSheetByName(SHEET_CONFIG);
+  if (!cf) cf = ss.insertSheet(SHEET_CONFIG);
+  if (cf.getLastRow() === 0) {
+    cf.getRange(1, 1, 3, 2).setValues([
+      ['key', 'value'],
+      ['target_level', 700],
+      ['target_label', '全国通訳案内士']
+    ]);
+  }
 }
-```
 
-**JSONのルール：**
-- 各パラメーターは0〜99の整数
-- phrases_learned はセミコロン（;）区切り
-- コードブロック（```json）で囲むこと
-- JSONの中にコメントや余計なテキストを入れないこと
+// ============================================================
+// GET: ?action=getDashboard / ?action=getSessions
+// ============================================================
+function doGet(e) {
+  const action = (e && e.parameter && e.parameter.action) || 'getDashboard';
+  try {
+    if (action === 'getSessions') {
+      return jsonOut({ status: 'success', data: readSessions() });
+    }
+    return jsonOut({ status: 'success', data: buildDashboard() });
+  } catch (err) {
+    return jsonOut({ status: 'error', message: String(err) });
+  }
+}
 
----
+// ============================================================
+// POST: セッション追加（relay.htmlから送信）
+// EXPはここで自動計算する（GPTには計算させない）
+// ============================================================
+function doPost(e) {
+  try {
+    const p = JSON.parse(e.postData.contents);
 
-## 採点基準：9パラメーター（各99点満点）
+    // パラメーター平均から出来栄え係数を算出
+    const vals = PARAM_KEYS.map(k => Number(p[k]) || 0);
+    const paramAvg = vals.reduce((a, b) => a + b, 0) / PARAM_KEYS.length;
 
-| パラメーター | 測定ポイント |
-|---|---|
-| pronunciation 🎤 発音 | 母音・子音の正確さ、リズム |
-| vocabulary 📚 語彙 | 使える単語の幅と正確さ |
-| grammar 📝 文法 | 複雑構文・時制の使いこなし |
-| fluency 💨 流暢さ | 詰まらず話せるか |
-| listening 👂 聞き取り | 聞き返しの頻度、理解速度 |
-| expression 💡 表現力 | 比喩・ユーモア・感情 |
-| naturalness 🌊 自然さ | 英語らしい言い回しか、直訳調でないか |
-| initiative 🚀 積極性 | 自分から話を広げ、質問し返せるか |
-| pragmatics 🎭 場の雰囲気 | 相手・状況に合った話し方の調整 |
+    const minutes = Number(p.minutes) || 10;
+    const mult = DIFF_MULT[p.difficulty] || 1.0;
+    const exp = Math.round(minutes * 10 * mult * (paramAvg / 50));
 
----
+    const row = HEADERS.map(h => {
+      if (h === 'exp_gained') return exp;
+      if (h === 'date') return p.date || Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+      return p[h] !== undefined ? p[h] : '';
+    });
 
-## 実力レベル基準表（levelの値）
+    const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SESSIONS);
+    sh.appendRow(row);
 
-| レベル帯 | 目安 | 特徴 |
-|---|---|---|
-| 1〜99 | 入門（A1） | 簡単な単語・自己紹介レベル |
-| 100〜299 | 初級（A2〜B1） | 日常会話・過去の話ができる |
-| 300〜499 | 中級（B1〜B2） | 意見・説明・議論ができる |
-| 500〜699 | 上級（B2〜C1） | ニュアンス・冗談・速い会話 |
-| 700〜899 | 準ネイティブ（C1〜C2） | 専門分野・微妙な表現まで |
-| 900〜999 | ネイティブ（C2+） | 文化的含意・暗黙知まで |
+    const dash = buildDashboard();
+    return jsonOut({
+      status: 'success',
+      exp_gained: exp,
+      dashboard: dash
+    });
+  } catch (err) {
+    return jsonOut({ status: 'error', message: String(err) });
+  }
+}
 
-**採点の心得：**
-- 日本人の平均的な英会話レベルは Lv.100〜200
-- 採点は厳密に。甘すぎる評価はユーザーの成長を妨げる
-- **毎回同じ基準で採点すること。** 前回との比較ではなく、常にこの基準表と照らして絶対評価する
-- 会話が短い・話題が簡単だったからといって極端に下げない。発揮された能力を評価する
+// ============================================================
+// セッション読み込み
+// ============================================================
+function readSessions() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SESSIONS);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const values = sh.getRange(2, 1, sh.getLastRow() - 1, HEADERS.length).getValues();
+  return values.map(r => {
+    const o = {};
+    HEADERS.forEach((h, i) => {
+      let v = r[i];
+      if (v instanceof Date) v = Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy-MM-dd');
+      o[h] = v;
+    });
+    return o;
+  });
+}
 
----
+// ============================================================
+// ダッシュボードデータ生成（全計算の中心）
+// ============================================================
+function buildDashboard() {
+  const sessions = readSessions();
+  const config = readConfig();
+  const n = sessions.length;
 
-## クラス（職業）判定基準
+  // --- 累計EXP・ランク（下がらない） ---
+  const expTotal = sessions.reduce((a, s) => a + (Number(s.exp_gained) || 0), 0);
+  let rank = RANKS[0], next = null;
+  for (let i = 0; i < RANKS.length; i++) {
+    if (expTotal >= RANKS[i].need) rank = RANKS[i];
+    else { next = RANKS[i]; break; }
+  }
+  const nextRankExp = next ? (next.need - expTotal) : 0;
 
-その日の会話の**戦い方**を以下から1つ判定する。classフィールドには日本語の職業名を入れること。
+  // --- 実力レベル（トリム平均・上下する） ---
+  const recent10 = sessions.slice(-10);
+  const levels = recent10.map(s => Number(s.level) || 0);
+  let currentLevel = 0;
+  let tutorial = n < 10;
+  if (n === 0) {
+    currentLevel = 0;
+  } else if (tutorial) {
+    currentLevel = Math.round(levels.reduce((a, b) => a + b, 0) / levels.length);
+  } else {
+    const sorted = [...levels].sort((a, b) => a - b);
+    const trimmed = sorted.slice(2, 8); // 上下2個ずつ除外 → 6個
+    currentLevel = Math.round(trimmed.reduce((a, b) => a + b, 0) / trimmed.length);
+  }
+  const tier = LEVEL_TIERS.find(t => currentLevel >= t.min && currentLevel <= t.max);
 
-| 職業 | 判定のよりどころ |
-|---|---|
-| ⚔️ 戦士 | 多少のミスを恐れずガンガン返す。流暢さ・積極性が高い |
-| 🥋 武闘家 | 短く速い応酬。テンポが良く無駄がない |
-| 🧙 魔法使い | 関係詞・仮定法など複雑構文を使いこなす技巧派。文法・語彙が突出 |
-| 🙏 僧侶 | 柔らかく丁寧、相手を気遣う話し方。場の雰囲気・自然さが高い |
-| 🗡️ 盗賊 | 相手の使った表現をその場で取り入れて使い回すのが上手い |
-| 🎻 吟遊詩人 | 比喩・深みのある表現で物語る。表現力・自然さが高い |
-| 🃏 遊び人 | 冗談・脱線・笑いが多い。場を沸かせる |
-| 💼 商人 | 数字・段取り・交渉に強い実利派 |
-| 👑 賢者 | **特別判定**：9パラメーターすべてが70以上の場合のみ。他の職業より優先する |
+  // --- 直近10回のパラメーター平均 ---
+  const out = {
+    session_count: String(n),
+    exp_total: String(expTotal),
+    current_level: String(currentLevel),
+    cefr: tier ? tier.cefr : '--',
+    class: n > 0 ? (sessions[n - 1].class || 'Traveler') : 'Traveler',
+    rank: rank.rank,
+    next_rank_exp: String(nextRankExp),
+    tutorial: tutorial,
+    tutorial_count: String(Math.min(n, 10)),
+    target_level: String(config.target_level || 700),
+    target_label: config.target_label || '',
+    remaining: String(Math.max(0, (Number(config.target_level) || 700) - currentLevel))
+  };
 
-最も特徴が表れていた職業を1つだけ選ぶ。迷ったら会話の印象が最も強かったものを選ぶこと。
+  const avgs = {};
+  PARAM_KEYS.forEach(k => {
+    const vals = recent10.map(s => Number(s[k]) || 0).filter(v => v > 0);
+    avgs[k] = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+    out['avg_' + k] = avgs[k].toFixed(1);
+  });
+
+  // --- 弱点（平均が低い順に3つ） ---
+  out.weak_params = Object.keys(avgs)
+    .sort((a, b) => avgs[a] - avgs[b])
+    .slice(0, 3)
+    .join(', ');
+
+  return out;
+}
+
+// ============================================================
+// データ全消去（Apps Script画面から手動実行する管理用関数）
+// テンプレート整備時や、最初からやり直したいときに使う
+// ヘッダー行は残し、セッションデータだけ削除する
+// ============================================================
+function resetAllData() {
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.alert(
+    '⚠️ データ全消去',
+    'すべてのセッションデータを削除します。この操作は取り消せません。実行しますか？',
+    ui.ButtonSet.YES_NO
+  );
+  if (res !== ui.Button.YES) return;
+
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SESSIONS);
+  if (sh && sh.getLastRow() > 1) {
+    sh.deleteRows(2, sh.getLastRow() - 1);
+  }
+  ui.alert('✅ 削除しました。冒険はまっさらな状態から始まります。');
+}
+
+// ============================================================
+// ユーティリティ
+// ============================================================
+function readConfig() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CONFIG);
+  const o = {};
+  if (!sh || sh.getLastRow() < 2) return o;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues()
+    .forEach(r => { if (r[0]) o[r[0]] = r[1]; });
+  return o;
+}
+
+function jsonOut(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
